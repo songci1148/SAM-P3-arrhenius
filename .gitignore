@@ -85,3 +85,17 @@ walker/walker_test.o8523800
 walker/walker_test.o8523954
 walker_3d/
 rce_acre/
+# SAM output directories
+OUT_2D/
+OUT_3D/
+OUT_STAT/
+OUT_MOMENTS/
+OUT_MOVIES/
+RESTART/
+OBJ/
+
+# Slurm/job output
+*.out
+
+# SAM timing output
+timing.*
