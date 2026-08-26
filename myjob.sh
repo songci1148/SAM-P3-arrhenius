@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-#SBATCH -A naiss2025-1-5
+#SBATCH -A naiss2026-1-3-cpu
 #SBATCH -J bubble_SAM
-#SBATCH -t 24:30:00
+#SBATCH -t 03:30:00
 #SBATCH -N 2
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=ci.song@misu.su.se

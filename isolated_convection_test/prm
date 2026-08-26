@@ -39,7 +39,7 @@ nelapsemin = 700,                       !length of the simulation in minutes;ada
  nrestart = 0,       !1 if you start from a restart file
  nrestart_skip=5,    !write restart file every n+1th time a stat file computed
 
- caseid ='P3_256x256x128_Nc0_200_frq_30min2D_1hr3D_lowRH_3km_QLAT_lathON',
+ caseid ='isolated_convection', !name of the case, used for output files
 
  CEM = .true.,
  OCEAN = .true.,
@@ -65,7 +65,7 @@ nelapsemin = 700,                       !length of the simulation in minutes;ada
  dolongwave     = .true.,
  doshortwave    = .true.,
  dosurface      = .true.,
- dolargescale   = .falsie., ! isolated convection -> NO LS forcing
+ dolargescale   = .false., ! isolated convection -> NO LS forcing
  doradforcing   = .false.,
  dosfcforcing   = .false.,
  docoriolis     = .false., ! keep azimuthal uniformity
@@ -130,6 +130,7 @@ nelapsemin = 700,                       !length of the simulation in minutes;ada
  nsave3D	= 120, !save every 1 hours
  nsave3Dstart	= 0, !28800 start saving after 10 days only
  nsave3Dend	= 99960480,
+ nsaveMSE = 120,
 
  doSAMconditionals = .false.    !code and downdraft core averges into *stat file
  dosatupdnconditionals = .true. !clody updraft and cloud free averages into *stat file

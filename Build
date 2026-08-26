@@ -3,7 +3,7 @@
 # specify the scratch directory where object files as well as
 # restart and large output data file will be located :
 
-setenv SAM_SCR /proj/bolinc/users/x_cison/SAM_P3_multi
+setenv SAM_SCR /nobackup/proj/disk/bolinc/personal/cisong/SAM_P3_multi_2
 
 # ----------------------------------
 # specify scalar-advection directory in SRC
