@@ -1,0 +1,138 @@
+ &SGS_TKE
+ dosmagor	= .true.,
+/
+
+ &MICRO_P3
+ nCat = 1                               !How many independent ice modes would you like to have (default = 1; climatologically not that different for radiation if more)
+ frzmodes = .false.                     !Do you want that each source process has a separate ice mode? [nice for detailed micro studies]
+ log_predictNc = .false.                 !note: if on grid coarser than e.g. 1 km, maybe just prescribe it with Nc0!
+ aerosol_mode1_number = 120.e6          !see in code
+ do_output_micro_process_rates = .true. !see in code what gets out if this is set to true
+ Nc0 = 100.                             !note: prescribed CDNC, used if log_predictNC is set to false
+ MaxTotalIceNumber = 10.e6              !note: much more than in the default scheme; and yes we need that so!
+ NumCirrusSulf = 20.                    !number of sulfate aerosol per unit of cubic centimeter
+ NumCirrusINP = 20.e-3                  !number of hardcoded cirrus INPs (or its maximum value if ramp_min is <1)
+ ramp_min = 0.1                         !INP linear ramp minimum value relative to NumCirrusINP (so for 0.1: 0.1*NumCirrusINP)
+ useMurphyKoopESat = .true.             !a more precise saturation vapor pressure formulation, more precise for T<-60C or so; used instead of Flatau
+
+ depo_frz_std = .false.                 !use new freezing for cirrus (if .false.) or use default P3 (if .true.)
+ use_preexisting_ice = .true.           !Shi et al, 2015 pre-existing ice formulation
+ do_mesoscale_variab = .false.          !assume additional unresolved w variability for cirrus nucleation calculation? (BG: more testing needed to determine if useful)
+ do_new_lp_frz = .true.                 !use the Liu & Penner ice nucleation scheme that also considers HET nucleation
+ no_lphom_ice_nucleation = .true.       !if true, only HOM from Liu & Penner active
+ no_cirrus_mohler_ice_nucleation=.true. !if false, use some older code, where HET occured but was not competing with HOM (not very realistic!)
+ do_wtke = .true.                       !use the subgrid scale tke to boost the updraft in cirrus nucleation scheme (impact non-negligible in resolutions up to ~500x500m or so)
+ lath3d = .true.
+ freezing_3dout = .false.               !3d freezing rates in output?
+/
+
+&UWOPTIONS
+
+doextrapolate_upperbound = .true.
+dowtg_blossey_etal_JAMES2009 = .false.
+nelapsemin = 700,                       !length of the simulation in minutes;adapt it based on the selected walltime
+/
+
+
+ &PARAMETERS
+
+ nrestart = 0,       !1 if you start from a restart file
+ nrestart_skip=5,    !write restart file every n+1th time a stat file computed
+
+ caseid ='isocld_P3_305SST_FAT_case32',
+
+ CEM = .true.,
+ OCEAN = .true.,
+
+ ocean_type = 0, ! ocean_type=1 is sinusoidal SST in x direction
+ tabs_s = 305,  ! when ocean_type is 1 or 2, this is the mean SST
+
+ perturb_type   = 32, ! isolated cloud case
+ zbase = 10500.0, ! base of the cloud in m 8500, 9500, 10500 for SST 295, 300, 305K respectively
+ ztop = 13500.0, ! top of the cloud in m + 3km from base
+
+ dosgs          = .true.,
+ dodamping      = .true.,
+ doupperbound   = .true.,
+ docloud        = .true.,
+ doprecip       = .true., 
+ dolongwave     = .true.,
+ doshortwave    = .true.,
+ dosurface      = .true.,
+ dolargescale   = .false., ! isolated convection -> NO LS forcing
+ doradforcing   = .false.,
+ dosfcforcing   = .false.,
+ docoriolis     = .false., ! keep azimuthal uniformity
+ donudging_uv   = .false., !if nudging on, need/reading in the lsf file!
+ donudging_tq   = .false.,
+
+ 
+
+ !NOTE: Additional diagnostics, mainly from BG or PBloss----------------
+ disablecloudradiation    =.false.,
+ disablecloudradiation_sw =.false.,
+ dotracers    = .false.,     !output passive tracers; sloppy implementation: to use them, change /SRC/tracers.f90 file for one in /SRC/tracers_allcode 
+                             ! no switch due to often encountering error with circulat dependencies between tracers and microphysics!
+                             ! also, change ntracers=0 in SRC/domain.f90 to the number of transported tracers 
+ write_w2_sgs = .false.,     !output subgrid scale w from tke, BG
+
+ csky3d = .true.,           !output 3D clear sky radiative heating rates
+ trac3d = .false.,           !NOTE: tracers 3D fields in the output
+ acre3d = .true.,            !output 3D cloud radiative heating = acre
+ rad3Dout  = .true.,        !effective radius of in the output
+ !Additional diagnostics stop---------------------------
+
+ !Note: radiation not following the RCEMIP protocol here!
+ doperpetual      = .true., !.false. = with diurnal cycle
+ dosolarconstant  = .true.,
+ solar_constant   = 423.5, ! Gasparini et al. 2019
+ zenith_angle     = 42.89,
+
+ !Satellite simulator output
+ doisccp          = .true.,
+ domodis          = .true.,
+ domisr           = .true.,
+
+ day0 = 0.
+
+ tauls = 7200.,
+ 
+ SFC_FLX_FXD    = .false.,
+ SFC_TAU_FXD    = .false.,
+
+ dx =   1000.,
+ dy = 	1000.,
+ dz = 250.,
+            ! dz_constant=.true.
+ dt = 	  30.,
+
+ latitude0= 0.,
+ longitude0=0.,
+ nrad = 6,        !radiation is called every nrad model timesteps
+
+ day0=0.0,
+
+ nstop 		= 1440, !12 hr for timestep of 30 sec
+ nprint 	= 4, ! 4 x 30 = 120 s print output every 2 min
+ nstat 		= 60, ! 30 min
+ nstatfrq 	= 15,
+
+ nsave2D	= 120, ! 30 min (120=1hour for 30s dt)
+ nsave2Dstart	= 0,
+ nsave2Dend	= 99960480,
+
+ nsave3D	= 120, !save every 1 hours
+ nsave3Dstart	= 0, !28800 start saving after 10 days only
+ nsave3Dend	= 99960480,
+ nsaveMSE = 120,
+
+ doSAMconditionals = .false.    !code and downdraft core averges into *stat file
+ dosatupdnconditionals = .true. !clody updraft and cloud free averages into *stat file
+
+ ncycle0 = 3,
+ ncycle_max = 55,
+ ncycle_min = 1,
+/
+
+
+ &end 

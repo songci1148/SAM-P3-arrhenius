@@ -1,0 +1,4 @@
+for f in ../../OUT_STAT/*.stat; do
+    ./stat2nc_new "$f"
+done
+

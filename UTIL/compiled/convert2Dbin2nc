@@ -1,0 +1,3 @@
+for f in ../../OUT_2D/*.2Dbin; do
+    ./2Dbin2nc_new "$f"
+done

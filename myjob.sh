@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #SBATCH -A naiss2026-1-3-cpu
-#SBATCH -J bubble_SAM
+#SBATCH -J FAT_SAM
 #SBATCH -t 03:30:00
 #SBATCH -N 2
 #SBATCH --mail-type=ALL

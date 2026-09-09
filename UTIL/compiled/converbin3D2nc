@@ -1,0 +1,3 @@
+for f in ../../OUT_3D/*.bin3D; do
+    ./bin3D2nc_new "$f"
+done

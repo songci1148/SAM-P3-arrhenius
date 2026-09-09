@@ -145,6 +145,10 @@ integer:: perturb_type  = 0 ! type of initial noise in setperturb()
   real:: bubble_dtemp = 0.
   real:: bubble_dq = 0.
 
+! Default vertical bounds for perturbation case 31 (meters). Can be set in prm via PARAMETERS namelist.
+real :: zbase = 10000.0
+real :: ztop  = 14000.0
+
 ! Option for simple treatment of aerosol radiative effect in RRTMG by Tak Yamaguchi
 logical:: doradaerosimple = .false. 
 

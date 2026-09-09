@@ -52,7 +52,8 @@ NAMELIST /PARAMETERS/ dodamping, doupperbound, docloud, doprecip, &
                 ncycle_max, ncycle_min, ncycle0, cfl_safety_factor, &
                 do_chunked_energy_budgets, do_chunked_momentum_budgets, &
                 nchunk_x_gl, nchunk_y_gl, nsaveMSE, &
-                disablecloudradiation, disablecloudradiation_sw,acre3d,trac3d,csky3d,write_w2_sgs !BG
+                disablecloudradiation, disablecloudradiation_sw,acre3d,trac3d,csky3d,write_w2_sgs, & !BG
+                ztop, zbase !CS
 
 	
 NAMELIST /UWOPTIONS/ rad_simple_fluxdiv1, &
