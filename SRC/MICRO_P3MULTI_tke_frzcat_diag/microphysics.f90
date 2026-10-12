@@ -156,6 +156,10 @@ real :: tmpw_3d(nx,ny,nzm) !BG added as used in 2 routines
 
 !bloss: array which holds temperature tendency due to microphysics
 real, allocatable, dimension(:,:,:), SAVE :: tmtend3d
+real, allocatable, dimension(:,:,:,:), SAVE :: qiased3d, niased3d !CS added; by ice category
+real, allocatable, dimension(:,:,:), SAVE :: qisub3d, nisub3d !CS added
+real, allocatable, dimension(:,:,:,:), SAVE :: vifall3d ! mass-weighted ice fall speed (m/s), by category
+real, allocatable, dimension(:,:,:,:), SAVE :: vinfall3d ! number-weighted ice fall speed (m/s), by category !CS
 !for homog heat real, allocatable, dimension(:,:,:), SAVE :: counterheat
 ! arrays with names/units for microphysical outputs in statistics.
 character*3, allocatable, dimension(:) :: mkname
@@ -301,7 +305,7 @@ subroutine micro_setparm()
   n_diag_2d = 1
   n_diag_3d = 1
   
-  nfields3D_micro=1 + nCat ! output effective size
+  nfields3D_micro=1 + nCat + nCat + nCat + 2*nCat + 2 ! DGEICE + VIFALL + VNFALL + (QI/NI)ASED by cat + total QI/NI SUB !CS added nCat for VNFALL
 
   ! Set up indices for the various fields in micro_field(:,:,:,:)
 
@@ -390,6 +394,10 @@ subroutine micro_setparm()
          micro_proc_rates(nx,ny,nzm,nmicro_proc), &
          trtau(nzm,nmicro_fields),qxoeffr(nzm,nmicro_fields), &    
          tmtend3d(nx,ny,nzm), & !BG
+         qiased3d(nx,ny,nzm,nCat), niased3d(nx,ny,nzm,nCat), & !CS
+         qisub3d(nx,ny,nzm), nisub3d(nx,ny,nzm), & !CS
+         vifall3d(nx,ny,nzm,nCat), &
+         vinfall3d(nx,ny,nzm,nCat), & !CS number-weighted fall speed
          STAT=ierr)
     if(ierr.ne.0) then
       write(*,*) 'Failed to allocate microphysical arrays on proc ', rank
@@ -499,20 +507,16 @@ subroutine micro_init()
 
   implicit none
 
-  integer :: k, status, ii
+  integer :: k, status, ii, nproc_rates_out
   real :: tmp_pgam, tmp_lambda
   real :: qc0(nzm)
 
   !BG TO DO: make it work with the new code for multiple Cat, I guess now not correct!
   !for 3d output from freezing, BG
   if(freezing_3dout) then
-    nfields3D_micro = nfields3D_micro + 9 !12-1!16!9 !!!!!!BG
-    print*, 'nfields3D_micro',nfields3D_micro
-    print*, 'nmicro_proc',nmicro_proc
- ! else
-    ! no QLATENT, no process rates, only REFFC + DGEICE*
- !   nfields3D_micro = 1 + nCat
-  !nfields3D_micro = 1 !BG was this the problem of missingQLAT????
+     nproc_rates_out = nmicro_proc
+     if (nCat.eq.1) nproc_rates_out = nmicro_process_rates_no_iceice
+     nfields3D_micro = nfields3D_micro + nproc_rates_out
   end if
   
   !BG added may 2024
@@ -732,7 +736,7 @@ subroutine micro_proc()
    !bloss: P3 allows multiple ice species.  We are restricting to one for now, but to make
    !  the interface consistent, declare these as three-dimensional arrays for now.
    real, dimension(nx, nzm, nCat) :: tmpqit, tmpqir, tmpnit, tmpbir, &
-        diag_effi, diag_vmi, diag_di, diag_rhopo !bloss (nCat>1): Each ice category has different properties
+        diag_effi, diag_vmi, diag_vni, diag_di, diag_rhopo !bloss (nCat>1): Each ice category has different properties; diag_vni added !CS
 
    real :: tmp_micro_proc_rates(nx,nzm,nmicro_proc) !!!BG what is passed from p3 main
 
@@ -795,10 +799,12 @@ if(do_chunked_energy_budgets) then
 end if ! if(do_chunked_energy_budgets)
 
 !BG added a la M2005/bloss
-if(dostatis) then ! initialize arrays for statistics
-   micro_proc_rates(:,:,:,:) = 0.
-   !micro_proc_rates_stat(:,:)= 0.
-   do_accumulate_micro_proc_rates = dostatis.AND.do_output_micro_process_rates !do_output_micro_process_rates
+do_accumulate_micro_proc_rates = do_output_micro_process_rates !CS
+if(do_accumulate_micro_proc_rates) then !CS
+  micro_proc_rates(:,:,:,:) = 0. !CS
+end if !CS
+if(dostatis) then ! initialize arrays for statistics !CS
+  !micro_proc_rates_stat(:,:)= 0.
 
    trtau(:,:) = 0.
    qxoeffr(:,:) = 0.
@@ -806,6 +812,12 @@ if(dostatis) then ! initialize arrays for statistics
    tlat(:) = 0.
 
    tmtend3d(:,:,:) = 0.
+  qiased3d(:,:,:,:) = 0. !CS
+  niased3d(:,:,:,:) = 0. !CS
+  qisub3d(:,:,:) = 0. !CS
+  nisub3d(:,:,:) = 0. !CS
+  vifall3d(:,:,:,:) = 0. !CS
+  vinfall3d(:,:,:,:) = 0. !CS
 end if
 !BG end
 
@@ -898,7 +910,7 @@ end if
               prt_liq=pcprt_liq, prt_sol=pcprt_sol, &
               its=its, ite=ite, kts=kts, kte=kte, nCat=nCat,            &
               diag_ze=diag_zdbz, diag_effc=diag_effc, diag_effi=diag_effi, &
-              diag_vmi=diag_vmi, diag_di=diag_di, diag_rhoi=diag_rhopo, &
+              diag_vmi=diag_vmi, diag_vni=diag_vni, diag_di=diag_di, diag_rhoi=diag_rhopo, & !CS added diag_vni
               n_diag_2d=n_diag_2d, diag_2d=diag_2d, &
               n_diag_3d=n_diag_3d, diag_3d=diag_3d, &
               log_predictNc=log_predictNc, typeDiags_ON=typeDiags_ON, model=trim(model), &
@@ -929,6 +941,11 @@ end if
        micro_field(1:nx, j, 1:nzm, inci(ii)) = tmpnit(1:nx, 1:nzm, ii)  ! total ice number mixing ratio
        micro_field(1:nx, j, 1:nzm, iqib(ii)) = tmpbir(1:nx, 1:nzm, ii)  ! rime ice volumne mixing ratio
 
+       ! save mass-weighted ice fall speed by category for 3D output
+       vifall3d(1:nx,j,1:nzm,ii) = diag_vmi(1:nx,1:nzm,ii)
+       ! save number-weighted ice fall speed by category for 3D output !CS
+       vinfall3d(1:nx,j,1:nzm,ii) = diag_vni(1:nx,1:nzm,ii) !CS
+
        ! save properties of each ice category for radiation
        IceMassMixingRatio_P3(1:nx, j, 1:nzm, ii) = tmpqit(1:nx, 1:nzm, ii)  ! total ice mass mixing ratio
        ReffIce_P3(1:nx,j,1:nzm,ii) = diag_effi(1:nx,1:nzm,ii)*1.e6 !from meter to micor meter
@@ -938,6 +955,16 @@ end if
      reffc(1:nx,j,1:nzm) = diag_effc(1:nx,1:nzm)*1.e6 !from meter to micro meter
 
      micro_proc_rates(1:nx,j,1:nzm,1:nmicro_proc) = tmp_micro_proc_rates(1:nx,1:nzm,1:nmicro_proc) !BG we are in a j loop!
+
+    ! 3D sedimentation tendencies for each ice category
+    do ii = 1,nCat
+      qiased3d(1:nx,j,1:nzm,ii) = tmp_stend(1:nx,1:nzm,iqit(ii)) !CS
+      niased3d(1:nx,j,1:nzm,ii) = tmp_stend(1:nx,1:nzm,inci(ii)) !CS
+    end do
+
+    ! 3D ice sublimation process rates (qisub, nisub) from micro_proc_rates
+    qisub3d(1:nx,j,1:nzm) = tmp_micro_proc_rates(1:nx,1:nzm,13)  ! qisub (kg/kg/s) !CS
+    nisub3d(1:nx,j,1:nzm) = tmp_micro_proc_rates(1:nx,1:nzm,30)  ! nisub (#/kg/s) !CS
 
      !bloss: If using RRTMG, use option to convert effective radius to generalized effective size
      ! Here is the code from create_p3_LookupTable_1.f90
@@ -1251,7 +1278,7 @@ subroutine micro_hbuf_init(namelist,deflist,unitlist,status,average_type,count,t
   character(*) namelist(*), deflist(*), unitlist(*)
   integer status(*),average_type(*),count,trcount
   integer ntr
-  integer n, ii, jj, ncond
+  integer n, ii, jj, ncond, nproc_rates_out !CS
 
   character*8 name
   character*80 longname
@@ -1352,7 +1379,9 @@ subroutine micro_hbuf_init(namelist,deflist,unitlist,status,average_type,count,t
 
   !BG a la' bloss for process rate - not known whethere mass or number
   if(do_output_micro_process_rates) then
-    do n = 1,nmicro_proc
+    nproc_rates_out = nmicro_proc !CS
+    if (nCat.eq.1) nproc_rates_out = nmicro_process_rates_no_iceice !CS
+    do n = 1,nproc_rates_out !CS
       call add_to_namelist(count,trcount, &
            trim(micro_process_rate_names(n)), &
            trim(micro_process_rate_longnames(n)), &
@@ -1379,7 +1408,7 @@ subroutine micro_statistics()
 
   real tmp(2), factor_xy
   real qcz(nzm), qiz(nzm), qrz(nzm), qsz(nzm), qgz(nzm), omg, zeros(nzm)
-  integer i,j,k,m,n
+  integer i,j,k,m,n, nproc_rates_out !CS
 
 
   factor_xy = 1./float(nx*ny)
@@ -1474,7 +1503,9 @@ subroutine micro_statistics()
 
   !BG a la' bloss from M2005 for micro process rates output
   if(do_output_micro_process_rates) then
-    do n = 1,nmicro_proc
+    nproc_rates_out = nmicro_proc !CS
+    if (nCat.eq.1) nproc_rates_out = nmicro_process_rates_no_iceice !CS
+    do n = 1,nproc_rates_out !CS
       do k=1,nzm
         ! that's how was before tr0(1:nzm) = micro_proc_rates(1:nzm,n)*86400.*factor_xy
         tr0(k) = SUM(micro_proc_rates(1:nx,1:ny,k,n))*86400*factor_xy !units: per day, field averages
@@ -1522,7 +1553,7 @@ subroutine micro_write_fields3D(nfields1)
   character *8 name
   character *10 units
   integer :: i, j, k, ii
-  integer :: n !BG added
+  integer :: n, nproc_rates_out !BG added
   real(4), dimension(nx,ny,nzm) :: tmp
 
  if (lath3d) then !BG added switch for RCEMIP, may 2024
@@ -1597,17 +1628,152 @@ end if
          save3Dbin,dompi,rank,nsubdomains)
   end do
 
+  ! CS 3D mass-weighted ice fall speed (nCat-aware output)
+  if (nCat.eq.1) then
+    nfields1=nfields1+1
+    do k=1,nzm
+      do j=1,ny
+        do i=1,nx
+          tmp(i,j,k)=vifall3d(i,j,k,1)
+        end do
+      end do
+    end do
+    name='VIFALLA'
+    long_name='Mass-weighted ice fall speed, category A'
+    units='m/s'
+    call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+         save3Dbin,dompi,rank,nsubdomains)
+  else
+    do ii = 1, nCat
+      nfields1=nfields1+1
+      do k=1,nzm
+        do j=1,ny
+          do i=1,nx
+            tmp(i,j,k)=vifall3d(i,j,k,ii)
+          end do
+        end do
+      end do
+      write(name, '(a, a)') 'VIFALL', CHAR(64+ii)
+      write(long_name, '(a, a)') 'Mass-weighted ice fall speed of P3 Ice Category ', CHAR(64+ii)
+      units='m/s'
+      call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+           save3Dbin,dompi,rank,nsubdomains)
+    end do
+  end if
+
+  ! 3D number-weighted ice fall speed (nCat-aware output) !CS
+  if (nCat.eq.1) then
+    nfields1=nfields1+1
+    do k=1,nzm
+      do j=1,ny
+        do i=1,nx
+          tmp(i,j,k)=vinfall3d(i,j,k,1)
+        end do
+      end do
+    end do
+    name='VNFALLA'
+    long_name='Number-weighted ice fall speed, category A'
+    units='m/s'
+    call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+         save3Dbin,dompi,rank,nsubdomains)
+  else
+    do ii = 1, nCat
+      nfields1=nfields1+1
+      do k=1,nzm
+        do j=1,ny
+          do i=1,nx
+            tmp(i,j,k)=vinfall3d(i,j,k,ii)
+          end do
+        end do
+      end do
+      write(name, '(a, a)') 'VNFALL', CHAR(64+ii)
+      write(long_name, '(a, a)') 'Number-weighted ice fall speed of P3 Ice Category ', CHAR(64+ii)
+      units='m/s'
+      call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+           save3Dbin,dompi,rank,nsubdomains)
+    end do
+  end if
+
+  ! 3D sedimentation tendency of ice mass/number (nCat-aware)
+  do ii = 1,nCat
+    nfields1=nfields1+1
+    do k=1,nzm
+      do j=1,ny
+        do i=1,nx
+          tmp(i,j,k)=qiased3d(i,j,k,ii)*86400.*1.e3 ! kg/kg/s -> g/kg/day
+        end do
+      end do
+    end do
+    write(name, '(a, a)') 'QIASED', CHAR(64+ii)
+    write(long_name, '(a, a)') 'Sedimentation tendency of ice mass, category ', CHAR(64+ii)
+    units='g/kg/d'
+    call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+         save3Dbin,dompi,rank,nsubdomains)
+
+    nfields1=nfields1+1
+    do k=1,nzm
+      do j=1,ny
+        do i=1,nx
+          tmp(i,j,k)=niased3d(i,j,k,ii)*rho(k)*86400.*1.e-6 ! #/kg/s -> #/mg/day
+        end do
+      end do
+    end do
+    write(name, '(a, a)') 'NIASED', CHAR(64+ii)
+    write(long_name, '(a, a)') 'Sedimentation tendency of ice number, category ', CHAR(64+ii)
+    units='#/mg/d'
+    call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+         save3Dbin,dompi,rank,nsubdomains)
+  end do
+
+  ! 3D microphysical sublimation tendency of ice mass
+  nfields1=nfields1+1
+  do k=1,nzm
+    do j=1,ny
+      do i=1,nx
+        tmp(i,j,k)=qisub3d(i,j,k)*86400.*1.e3 ! kg/kg/s -> g/kg/day
+      end do
+    end do
+  end do
+  if (nCat.eq.1) then
+    name='QIASUBA'
+    long_name='Microphysical tendency of ice mass from sublimation, category A'
+  else
+    name='QIASUBT'
+    long_name='Microphysical tendency of total ice mass from sublimation'
+  end if
+  units='g/kg/d'
+  call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+       save3Dbin,dompi,rank,nsubdomains)
+
+  ! 3D microphysical sublimation tendency of ice number
+  nfields1=nfields1+1
+  do k=1,nzm
+    do j=1,ny
+      do i=1,nx
+        tmp(i,j,k)=nisub3d(i,j,k)*rho(k)*86400.*1.e-6 ! #/kg/s -> #/mg/day
+      end do
+    end do
+  end do
+  if (nCat.eq.1) then
+    name='NIASUBA'
+    long_name='Microphysical tendency of ice number from sublimation, category A'
+  else
+    name='NIASUBT'
+    long_name='Microphysical tendency of total ice number from sublimation'
+  end if
+  units='#/mg/d'
+  call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+       save3Dbin,dompi,rank,nsubdomains)
+  ! CS end of nCat loop for ice sedimentation and sublimation tendencies
 !BG 
 ! TO DO: make it work with multiple ice categories!!!
 ! CHECK WHAT GOES OUT WHAT NOT
 if(freezing_3dout) then
 
-  !nfields1=nfields1 + 3 !!!BG dangerous fix not sure why i need to do it..
-  nfields1 =0 !BG ADDED 7.4.2020
-  do n= 1,10!16 !BG nmicro_fields
+  nproc_rates_out = nmicro_proc
+  if (nCat.eq.1) nproc_rates_out = nmicro_process_rates_no_iceice
+  do n=1,nproc_rates_out
     nfields1=nfields1+1
-    print*, 'nfields1',nfields1
-    print*, 'nmicro fields',nmicro_fields
     do k=1,nzm
       do j=1,ny
         do i=1,nx
@@ -1623,7 +1789,7 @@ if(freezing_3dout) then
   units=TRIM(micro_process_rate_names(n))
   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
        save3Dbin,dompi,rank,nsubdomains)
-  end do! 16 nmicro fields
+  end do
 end if !freezing_3dout
 !else
 !  nfields1=nfields1+1 !BG quick fix, make it better later

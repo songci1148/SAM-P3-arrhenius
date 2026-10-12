@@ -1614,7 +1614,7 @@ END subroutine p3_init
 
  SUBROUTINE p3_main(qc,nc,qr,nr,th_old,th,qv_old,qv,dt,qitot,qirim,nitot,birim,ssat,uzpl, &
                     pres,dzq,it,prt_liq,prt_sol,its,ite,kts,kte,nCat,diag_ze,diag_effc,   &
-                    diag_effi,diag_vmi,diag_di,diag_rhoi,n_diag_2d,diag_2d,n_diag_3d,     &
+                    diag_effi,diag_vmi,diag_vni,diag_di,diag_rhoi,n_diag_2d,diag_2d,n_diag_3d,     &
                     diag_3d,log_predictNc,typeDiags_ON,model,clbfact_dep,clbfact_sub,     &
                     debug_on,scpf_on,scpf_pfrac,scpf_resfact,SCF_out,prt_drzl,prt_rain,   &
                     prt_crys,prt_snow,prt_grpl,prt_pell,prt_hail,prt_sndp,qi_type,        &
@@ -1670,6 +1670,7 @@ END subroutine p3_init
  real, intent(out),   dimension(its:ite,kts:kte)      :: diag_effc  ! effective radius, cloud          m
  real, intent(out),   dimension(its:ite,kts:kte,nCat) :: diag_effi  ! effective radius, ice            m
  real, intent(out),   dimension(its:ite,kts:kte,nCat) :: diag_vmi   ! mass-weighted fall speed of ice  m s-1
+ real, intent(out),   dimension(its:ite,kts:kte,nCat), optional :: diag_vni   ! number-weighted fall speed of ice  m s-1
  real, intent(out),   dimension(its:ite,kts:kte,nCat) :: diag_di    ! mean diameter of ice             m
  real, intent(out),   dimension(its:ite,kts:kte,nCat) :: diag_rhoi  ! bulk density of ice              kg m-1
 
@@ -1705,6 +1706,8 @@ END subroutine p3_init
  real, intent(inout), dimension(its:ite,kts:kte, nmicro_proc) :: micro_proc_rates !BG
  logical, intent(in)  :: do_accumulate_micro_proc_rates
  !SAM additions end
+
+   
 
  real, intent(out), dimension(its:ite), optional      :: prt_drzl      ! precip rate, drizzle          m s-1
  real, intent(out), dimension(its:ite), optional      :: prt_rain      ! precip rate, rain             m s-1
@@ -2058,6 +2061,7 @@ real :: ci
 !diag_effr = 25.e-6 ! default value
  diag_effi = 25.e-6 ! default value
  diag_vmi  = 0.
+ if (present(diag_vni)) diag_vni = 0.
  diag_di   = 0.
  diag_rhoi = 0.
  diag_2d   = 0.
@@ -3967,50 +3971,52 @@ ncrfrz = ninuc+nchetc+ncheti+nrhetc+nrheti  !+ ninuc2+ninuc3 !BG sum of all free
     !ABS making some changes here to include some warm cloud process rates
     idx = idx + 1
     ! warm cloud processes -> not in output, currently
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + qrcon ! rain condensation [kg/kg/s]
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + qcacc ! cloud droplet accretion by rain [kg/kg/s] ABS added
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + qcaut ! cloud droplet autoconversion to rain [kg/kg/s] ABS added
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + qccon ! cloud droplet condensation [kg/kg/s] ABS added
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + qcnuc ! activation of cloud droplets from CCN [kg/kg/s] ABS added
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + qrevp ! rain evaporation [kg/kg/s] ABS added
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + qcevp ! cloud droplet  evaporation [kg/kg/s] ABS added
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qccol(:)) ! collection of cloud water by ice [kg/kg/s]
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qwgrth(:)) ! wet growth rate [kg/kg/s]
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qidep(:)) ! vapor deposition on ice [kg/kg/s]
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qrcol(:)) ! collection of rain mass by  ice [kg/kg/s]
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qinuc(:)) ! deposition/condensation freezing nuc [kg/kg/s] ABS added but not sure what it is
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qisub(:)) ! sublimation of ice [kg/kg/s]
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qimlt(:)) ! melting of ice [kg/kg/s]
-    !idx = idx + 1 !n15 = mixed-phase frz
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qcrfrz(:)) ! freezing of cloud droplets (qinuc + qchetc + qcheti) and rain (qrhti+qrhetc) !BG
-    !idx = idx + 1 !n16 =. in situ
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qinuc2(:)) + SUM(qinuc3(:))! contact freezing before (turned off) so now it's in-situ freezing in cirrus
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qcheti(:)) ! immersion freezing of cloud droplets !ABS
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qrhetc(:)) ! contact freezing of rain !ABS
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qrheti(:)) ! immersion freezing of rain !ABS
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qcshd(:)) ! source of rain mass due to colling/wet growth and shedding ABS added
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qcmul(:)) ! rime-splintering of cloud water ABS added
-    !idx = idx + 1
-    !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qrmul(:)) ! rime-splintering of rain ABS added
-    !idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + qrcon ! rain condensation [kg/kg/s]
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + qcacc ! cloud droplet accretion by rain [kg/kg/s] ABS added
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + qcaut ! cloud droplet autoconversion to rain [kg/kg/s] ABS added
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + qccon ! cloud droplet condensation [kg/kg/s] ABS added
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + qcnuc ! activation of cloud droplets from CCN [kg/kg/s] ABS added
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + qrevp ! rain evaporation [kg/kg/s] ABS added
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + qcevp ! cloud droplet  evaporation [kg/kg/s] ABS added
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qccol(:)) ! collection of cloud water by ice [kg/kg/s]
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qwgrth(:)) ! wet growth rate [kg/kg/s]
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qidep(:)) ! vapor deposition on ice [kg/kg/s]
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qrcol(:)) ! collection of rain mass by  ice [kg/kg/s]
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qinuc(:)) ! deposition/condensation freezing nuc [kg/kg/s] ABS added but not sure what it is
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qisub(:)) ! sublimation of ice [kg/kg/s]
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qimlt(:)) ! melting of ice [kg/kg/s]
+    idx = idx + 1 !n15 = mixed-phase frz
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qcrfrz(:)) ! freezing of cloud droplets (qinuc + qchetc + qcheti) and rain (qrhti+qrhetc) !BG
+   idx = idx + 1 ! n16 = qinuc2
+   micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qinuc2(:)) ! Mohler deposition freezing (mass)
+   idx = idx + 1 ! n17 = qinuc3
+   micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qinuc3(:)) ! LP deposition/freezing (mass)
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qcheti(:)) ! immersion freezing of cloud droplets !ABS
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qrhetc(:)) ! contact freezing of rain !ABS
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qrheti(:)) ! immersion freezing of rain !ABS
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qcshd(:)) ! source of rain mass due to colling/wet growth and shedding ABS added
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qcmul(:)) ! rime-splintering of cloud water ABS added
+    idx = idx + 1
+    micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qrmul(:)) ! rime-splintering of rain ABS added
+    idx = idx + 1
   
     !BG 3d number rates, focused on ice/freezing
     micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(ninuc(:))  !(some sort of) deposition freezing [mixed-phase]
@@ -4659,14 +4665,15 @@ endif
          ncrfrz_hom=SUM(nrhomi(:))+SUM(nchomi(:))
       !BG micro proc rates here as hom nucleation done only later than rest
       if (do_accumulate_micro_proc_rates) then
-         idx= fidx !final idx from micro rates 10 !!! !BG A10
-         !idx=idx+1 
-         !micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qrhomi(:))+SUM(qchomi(:)) ! + SUM(qcrfrz_hom(:)) !instantaneous hom freezing of cloud drops and rain (security statement) !BG
-         !number rates =>total newly nucleation number
-         idx=idx+1
-         micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(nrhomi(:))+SUM(nchomi(:)) !SUM(ncrfrz_hom(:)) !instantaneous hom freezing of cloud drops and rain (security statement) !BG
+         idx = fidx ! final idx from earlier accumulation
+         ! store homogeneous freezing mass (qcrfrz_hom = SUM(qrhomi)+SUM(qchomi))
+         idx = idx + 1
+         micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + SUM(qrhomi(:)) + SUM(qchomi(:))
+         ! store homogeneous freezing number (nrhomi+nchomi)
+         idx = idx + 1
+         micro_proc_rates(i,k,idx) = micro_proc_rates(i,k,idx) + (SUM(nrhomi(:)) + SUM(nchomi(:)))
 
-      endif
+      end if
       !BG end
 
     enddo k_loop_fz
@@ -4749,6 +4756,7 @@ endif
                                              !qirim(i,k,iice),zitot(i,k,iice),rhop)
 
              call access_lookup_table(dumjj,dumii,dumi, 2,dum1,dum4,dum5,f1pr02)
+             call access_lookup_table(dumjj,dumii,dumi, 1,dum1,dum4,dum5,f1pr01)
              call access_lookup_table(dumjj,dumii,dumi, 6,dum1,dum4,dum5,f1pr06)
              call access_lookup_table(dumjj,dumii,dumi, 7,dum1,dum4,dum5,f1pr09)
              call access_lookup_table(dumjj,dumii,dumi, 8,dum1,dum4,dum5,f1pr10)
@@ -4770,6 +4778,7 @@ endif
 
   ! note that reflectivity from lookup table is normalized, so we need to multiply by N
              diag_vmi(i,k,iice)   = f1pr02*rhofaci(i,k)
+             if (present(diag_vni)) diag_vni(i,k,iice) = f1pr01*rhofaci(i,k)
              diag_effi(i,k,iice)  = f1pr06 ! units are in m
              diag_di(i,k,iice)    = f1pr15
              diag_rhoi(i,k,iice)  = f1pr16
